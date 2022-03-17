@@ -150,6 +150,10 @@ class LaunchValues:
         poiseCoef,
     ):
         args.weight = weight
+        args.headFlag = headFlag
+        args.chestFlag = chestFlag
+        args.handsFlag = handsFlag
+        args.legsFlag = legsFlag
         args.physicalFlag = physicalFlag
         args.physicalCoef = physicalCoef
         args.strikeFlag = strikeFlag
@@ -303,15 +307,103 @@ def initArmorArrays(armorArray):
     for i in range(len(armorArray)):
         match armorArray[i].type:
             case "head":
-                helmArray.append(armorArray[i])
+                if launchValues.headFlag:
+                    helmArray.append(armorArray[i])
             case "chest":
-                chestArray.append(armorArray[i])
+                if launchValues.chestFlag:
+                    chestArray.append(armorArray[i])
             case "hands":
-                gauntletArray.append(armorArray[i])
+                if launchValues.handsFlag:
+                    gauntletArray.append(armorArray[i])
             case "legs":
-                legArray.append(armorArray[i])
+                if launchValues.legsFlag:
+                    legArray.append(armorArray[i])
             case _:
                 raise Exception("Invalid Armor Type: " + armorArray[i])
+    if not launchValues.headFlag:
+        helmArray.append(
+            Armor(
+                name="",
+                type="head",
+                weight=float(0.0001),
+                physical=float(0),
+                strike=float(0),
+                slash=float(0),
+                pierce=float(0),
+                magic=float(0),
+                fire=float(0),
+                lightning=float(0),
+                holy=float(0),
+                immunity=float(0),
+                robustness=float(0),
+                focus=float(0),
+                vitality=float(0),
+                poise=float(0)
+            )
+        )
+    if not launchValues.chestFlag:
+        chestArray.append(
+            Armor(
+                name="",
+                type="chest",
+                weight=float(0.0001),
+                physical=float(0),
+                strike=float(0),
+                slash=float(0),
+                pierce=float(0),
+                magic=float(0),
+                fire=float(0),
+                lightning=float(0),
+                holy=float(0),
+                immunity=float(0),
+                robustness=float(0),
+                focus=float(0),
+                vitality=float(0),
+                poise=float(0)
+            )
+        )
+    if not launchValues.handsFlag:
+        gauntletArray.append(
+            Armor(
+                name="",
+                type="hands",
+                weight=float(0.0001),
+                physical=float(0),
+                strike=float(0),
+                slash=float(0),
+                pierce=float(0),
+                magic=float(0),
+                fire=float(0),
+                lightning=float(0),
+                holy=float(0),
+                immunity=float(0),
+                robustness=float(0),
+                focus=float(0),
+                vitality=float(0),
+                poise=float(0)
+            )
+        )
+    if not launchValues.legsFlag:
+        legArray.append(
+            Armor(
+                name="",
+                type="legs",
+                weight=float(0.0001),
+                physical=float(0),
+                strike=float(0),
+                slash=float(0),
+                pierce=float(0),
+                magic=float(0),
+                fire=float(0),
+                lightning=float(0),
+                holy=float(0),
+                immunity=float(0),
+                robustness=float(0),
+                focus=float(0),
+                vitality=float(0),
+                poise=float(0)
+            )
+        )
     return helmArray, chestArray, gauntletArray, legArray
 
 
