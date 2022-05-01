@@ -815,7 +815,7 @@ for i in range(len(data)):
                 holy=float(data[i][11]),
                 immunity=float(data[i][12]),
                 robustness=float(data[i][13]),
-                focus=float(handlingMissingValues(data[i][13])),
+                focus=float(handlingMissingValues(data[i][14])),
                 vitality=float(handlingMissingValues(data[i][15])),
                 poise=float(handlingMissingValues(data[i][16])),
             )
@@ -1022,6 +1022,7 @@ def initOptimalArmor(launchValues, armorArray):
     gauntletIncr = False
     legIncr = False
     if len(helmArray) > 0:
+        # print(len(helmArray))
         nextHelm, helmIncr = nextArmor(
             launchValues, remainingWeight, helmArray, helmPiece
         )
