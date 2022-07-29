@@ -1,7 +1,12 @@
+import copy
 import csv
 import os.path
 import PySimpleGUI as sg
+import asyncio
 from operator import attrgetter
+
+# troubleshooting
+# import time
 
 if not os.path.exists("Elden_Ring_Armor_Calc.csv"):
     csvBackup = [
@@ -609,37 +614,38 @@ inputLayout = [
         sg.InputText(key="strikeCoef", size=(4), default_text="1"),
     ],
     [
-        sg.Text("Armor:", size=23),
+        sg.Text("Min. Poise (rly slow)", size=(16)),
+        sg.InputText(key="minPoise", default_text=0, size=(6)),
         sg.Checkbox("Slash", key="slashFlag", default=False, size=(8)),
         sg.Text("Multiplier:"),
         sg.InputText(key="slashCoef", size=(4), default_text="1"),
     ],
     [
-        sg.Checkbox("Head", key="headFlag", default=True, size=(20)),
+        sg.Text("Armor:", size=23),
         sg.Checkbox("Pierce", key="pierceFlag", default=False, size=(8)),
         sg.Text("Multiplier:"),
         sg.InputText(key="pierceCoef", size=(4), default_text="1"),
     ],
     [
-        sg.Checkbox("Chest", key="chestFlag", default=True, size=(20)),
+        sg.Checkbox("Head", key="headFlag", default=True, size=(20)),
         sg.Checkbox("Magic", key="magicFlag", default=False, size=(8)),
         sg.Text("Multiplier:"),
         sg.InputText(key="magicCoef", size=(4), default_text="1"),
     ],
     [
-        sg.Checkbox("Hands", key="handsFlag", default=True, size=(20)),
+        sg.Checkbox("Chest", key="chestFlag", default=True, size=(20)),
         sg.Checkbox("Fire", key="fireFlag", default=False, size=(8)),
         sg.Text("Multiplier:"),
         sg.InputText(key="fireCoef", size=(4), default_text="1"),
     ],
     [
-        sg.Checkbox("Legs", key="legsFlag", default=True, size=(20)),
+        sg.Checkbox("Hands", key="handsFlag", default=True, size=(20)),
         sg.Checkbox("Lightning", key="lightningFlag", default=False, size=(8)),
         sg.Text("Multiplier:"),
         sg.InputText(key="lightningCoef", size=(4), default_text="1"),
     ],
     [
-        sg.Text("", size=23),
+        sg.Checkbox("Legs", key="legsFlag", default=True, size=(20)),
         sg.Checkbox("Holy", key="holyFlag", default=False, size=(8)),
         sg.Text("Multiplier:"),
         sg.InputText(key="holyCoef", size=(4), default_text="1"),
@@ -688,6 +694,7 @@ class LaunchValues:
     def __init__(
         args,
         weight,
+        minPoise,
         headFlag,
         chestFlag,
         handsFlag,
@@ -720,6 +727,7 @@ class LaunchValues:
         poiseCoef,
     ):
         args.weight = weight
+        args.minPoise = minPoise
         args.headFlag = headFlag
         args.chestFlag = chestFlag
         args.handsFlag = handsFlag
@@ -771,6 +779,7 @@ class Armor:
         focus,
         vitality,
         poise,
+        score,
     ):
         armor.name = name
         armor.type = type
@@ -788,6 +797,7 @@ class Armor:
         armor.focus = focus
         armor.vitality = vitality
         armor.poise = poise
+        armor.score = score
 
 
 def handlingMissingValues(value):
@@ -796,6 +806,16 @@ def handlingMissingValues(value):
     else:
         return 0
 
+
+noArmor = [
+    ["Y", "Nothing", "head", 0.000001, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    ["Y", "Nothing", "chest", 0.000001, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    ["Y", "Nothing", "hands", 0.000001, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    ["Y", "Nothing", "legs", 0.000001, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+]
+
+for i in range(len(noArmor)):
+    data.append(noArmor[i])
 
 armorArray = []
 for i in range(len(data)):
@@ -818,10 +838,11 @@ for i in range(len(data)):
                 focus=float(handlingMissingValues(data[i][14])),
                 vitality=float(handlingMissingValues(data[i][15])),
                 poise=float(handlingMissingValues(data[i][16])),
+                score=None,
             )
             armorArray.append(tempArmor)
 
-
+# returns the score as a raw number value
 def calcArmorValue(launchValues, armorPiece):
     value = 0
     if launchValues.physicalFlag:
@@ -861,12 +882,14 @@ def weightDenominator(nextWeight, currentWeight):
 
 
 def nextArmor(launchValues, remainingWeight, armorArray, armorPiece):
+    # cannot use .score, due to maxPoise logic
     armorValue = calcArmorValue(launchValues, armorPiece)
     popList = []
     nextPiece = False
     nextIncr = False
     armorRate = 0
     for i in range(len(armorArray)):
+        # cannot use .score, due to maxPoise logic
         nextValue = calcArmorValue(launchValues, armorArray[i])
         nextRate = nextValue / armorArray[i].weight
         if nextValue <= armorValue:
@@ -885,7 +908,7 @@ def nextArmor(launchValues, remainingWeight, armorArray, armorPiece):
     return [nextPiece, nextIncr]
 
 
-def initArmorArrays(armorArray):
+def initArmorArrays(launchValues, armorArray):
     helmArray = []
     chestArray = []
     gauntletArray = []
@@ -925,6 +948,7 @@ def initArmorArrays(armorArray):
                 focus=float(0),
                 vitality=float(0),
                 poise=float(0),
+                score=float(0),
             )
         )
     if not launchValues.chestFlag:
@@ -946,6 +970,7 @@ def initArmorArrays(armorArray):
                 focus=float(0),
                 vitality=float(0),
                 poise=float(0),
+                score=float(0),
             )
         )
     if not launchValues.handsFlag:
@@ -967,6 +992,7 @@ def initArmorArrays(armorArray):
                 focus=float(0),
                 vitality=float(0),
                 poise=float(0),
+                score=float(0),
             )
         )
     if not launchValues.legsFlag:
@@ -988,6 +1014,7 @@ def initArmorArrays(armorArray):
                 focus=float(0),
                 vitality=float(0),
                 poise=float(0),
+                score=float(0),
             )
         )
     return helmArray, chestArray, gauntletArray, legArray
@@ -998,6 +1025,7 @@ def getInitArmorPiece(launchValues, pieceArray):
     bestValue = -999
     for i in range(len(pieceArray)):
         if pieceArray[i].weight == minWeight:
+            # cannot use .score, due to maxPoise logic
             newValue = calcArmorValue(launchValues, pieceArray[i])
             if newValue > bestValue:
                 bestInitPiece = pieceArray[i]
@@ -1005,7 +1033,9 @@ def getInitArmorPiece(launchValues, pieceArray):
 
 
 def initOptimalArmor(launchValues, armorArray):
-    helmArray, chestArray, gauntletArray, legArray = initArmorArrays(armorArray)
+    helmArray, chestArray, gauntletArray, legArray = initArmorArrays(
+        launchValues, armorArray
+    )
     helmPiece = getInitArmorPiece(launchValues, helmArray)
     chestPiece = getInitArmorPiece(launchValues, chestArray)
     gauntletPiece = getInitArmorPiece(launchValues, gauntletArray)
@@ -1122,6 +1152,266 @@ def optimalArmor(
     return helmPiece, chestPiece, gauntletPiece, legPiece
 
 
+def maxPoise(launchValues, armorArray):
+    poiseValues = copy.deepcopy(launchValues)
+    poiseValues.physicalFlag = False
+    poiseValues.strikeFlag = False
+    poiseValues.slashFlag = False
+    poiseValues.pierceFlag = False
+    poiseValues.magicFlag = False
+    poiseValues.fireFlag = False
+    poiseValues.lightningFlag = False
+    poiseValues.holyFlag = False
+    poiseValues.immunityFlag = False
+    poiseValues.robustnessFlag = False
+    poiseValues.focusFlag = False
+    poiseValues.vitalityFlag = False
+    poiseValues.poiseFlag = True
+    poiseValues.poiseCoef = 1
+    (
+        helmArray,
+        chestArray,
+        gauntletArray,
+        legArray,
+        helmPiece,
+        chestPiece,
+        gauntletPiece,
+        legPiece,
+        nextHelm,
+        nextChest,
+        nextGauntlet,
+        nextLeg,
+        helmIncr,
+        chestIncr,
+        gauntletIncr,
+        legIncr,
+    ) = initOptimalArmor(poiseValues, armorArray)
+    helmPiece, chestPiece, gauntletPiece, legPiece = optimalArmor(
+        launchValues,
+        helmArray,
+        chestArray,
+        gauntletArray,
+        legArray,
+        helmPiece,
+        chestPiece,
+        gauntletPiece,
+        legPiece,
+        nextHelm,
+        nextChest,
+        nextGauntlet,
+        nextLeg,
+        helmIncr,
+        chestIncr,
+        gauntletIncr,
+        legIncr,
+    )
+    return armorPoise(helmPiece, chestPiece, gauntletPiece, legPiece)
+
+
+def armorPoise(helmPiece, chestPiece, gauntletPiece, legPiece):
+    return helmPiece.poise + chestPiece.poise + gauntletPiece.poise + legPiece.poise
+
+
+def incrementPoise(
+    launchValues, armorArray, helmPiece, chestPiece, gauntletPiece, legPiece
+):
+    # do stuff
+    return helmPiece, chestPiece, gauntletPiece, legPiece
+
+
+async def bruteForcePoiseCalcLevel3(
+    helmArray,
+    chestArray,
+    gauntletArray,
+    legArray,
+    helmIndex,
+    chestIndex,
+    gauntletArrayLength,
+    legArrayLength,
+    progressBar,
+    progressBarTotal,
+):
+    global bruteForceArray
+    global progressBarCounter
+    for gauntletIndex in range(gauntletArrayLength):
+        progressBarCounter += 1
+        for legIndex in range(legArrayLength):
+            progressBarCounter += 1
+            if progressBarCounter % 1000 == 0:
+                progressBar.UpdateBar(
+                    1000 * progressBarCounter / progressBarTotal, 1000
+                )
+            currentHelm = helmArray[helmIndex]
+            currentChest = chestArray[chestIndex]
+            currentGauntlets = gauntletArray[gauntletIndex]
+            currentLeg = legArray[legIndex]
+            combinationPoise = (
+                currentHelm.poise
+                + currentChest.poise
+                + currentGauntlets.poise
+                + currentLeg.poise
+            )
+            if combinationPoise >= launchValues.minPoise:
+                combinationWeight = (
+                    currentHelm.weight
+                    + currentChest.weight
+                    + currentGauntlets.weight
+                    + currentLeg.weight
+                )
+                if combinationWeight <= launchValues.weight:
+                    combinationScore = (
+                        currentHelm.score
+                        + currentChest.score
+                        + currentGauntlets.score
+                        + currentLeg.score
+                    )
+                    if combinationScore > bruteForceArray[1]:
+                        bruteForceArray = [
+                            [
+                                helmIndex,
+                                chestIndex,
+                                gauntletIndex,
+                                legIndex,
+                            ],
+                            combinationScore,
+                            combinationWeight,
+                            combinationPoise,
+                        ]
+                        # print(
+                        #     "High Score: "
+                        #     + str(bruteForceArray[1])
+                        #     + " "
+                        #     + helmArray[bruteForceArray[0][0]].name
+                        # )
+
+
+async def bruteForcePoiseCalcLevel2(
+    helmArray,
+    chestArray,
+    gauntletArray,
+    legArray,
+    helmIndex,
+    chestArrayLength,
+    gauntletArrayLength,
+    legArrayLength,
+    progressBar,
+    progressBarTotal,
+):
+    global progressBarCounter
+    for chestIndex in range(chestArrayLength):
+        progressBarCounter += 1
+        asyncio.create_task(
+            bruteForcePoiseCalcLevel3(
+                helmArray,
+                chestArray,
+                gauntletArray,
+                legArray,
+                helmIndex,
+                chestIndex,
+                gauntletArrayLength,
+                legArrayLength,
+                progressBar,
+                progressBarTotal,
+            )
+        )
+
+
+async def bruteForcePoiseCalcLevel1(
+    helmArray,
+    chestArray,
+    gauntletArray,
+    legArray,
+    helmArrayLength,
+    chestArrayLength,
+    gauntletArrayLength,
+    legArrayLength,
+    progressBar,
+):
+    global progressBarCounter
+    progressBarCounter = 0
+    progressBarTotal = (
+        helmArrayLength * chestArrayLength * gauntletArrayLength * legArrayLength
+    )
+    for helmIndex in range(helmArrayLength):
+        progressBarCounter += 1
+        asyncio.create_task(
+            bruteForcePoiseCalcLevel2(
+                helmArray,
+                chestArray,
+                gauntletArray,
+                legArray,
+                helmIndex,
+                chestArrayLength,
+                gauntletArrayLength,
+                legArrayLength,
+                progressBar,
+                progressBarTotal,
+            )
+        )
+    await asyncio.gather(*asyncio.all_tasks() - {asyncio.current_task()})
+
+
+def poiseOptimization(
+    launchValues, armorArray, helmPiece, chestPiece, gauntletPiece, legPiece
+):
+    global minPoiseUnobtainable
+    minPoiseUnobtainable = False
+    # Has minimum poise been met?
+    if launchValues.minPoise > armorPoise(
+        helmPiece, chestPiece, gauntletPiece, legPiece
+    ):
+        # Can minimum poise be met?
+        if launchValues.minPoise > maxPoise(launchValues, armorArray):
+            minPoiseUnobtainable = True
+            return helmPiece, chestPiece, gauntletPiece, legPiece
+        else:
+            # Find best value with minimum poise by force
+            # Pre-calculate armor value
+            helmArray, chestArray, gauntletArray, legArray = initArmorArrays(
+                launchValues, armorArray
+            )
+            global bruteForceArray
+            bruteForceArray = [[0, 0, 0, 0], 0, 0, 0]
+            # troubleshooting
+            # startTime = time.perf_counter()
+            # Set constant values
+            helmArrayLength = len(helmArray)
+            chestArrayLength = len(chestArray)
+            gauntletArrayLength = len(gauntletArray)
+            legArrayLength = len(legArray)
+            # this is for the Layout Design of the Window
+            layout = [
+                [sg.Text("Calculating with Min. Poise")],
+                [sg.ProgressBar(1, orientation="h", size=(20, 20), key="progress")],
+            ]
+            # This Creates the Physical Window
+            window = sg.Window("Loading", layout).Finalize()
+            progressBar = window.FindElement("progress")
+            asyncio.run(
+                bruteForcePoiseCalcLevel1(
+                    helmArray,
+                    chestArray,
+                    gauntletArray,
+                    legArray,
+                    helmArrayLength,
+                    chestArrayLength,
+                    gauntletArrayLength,
+                    legArrayLength,
+                    progressBar,
+                )
+            )
+            # runTime = time.perf_counter() - startTime
+            # print("Run Time: " + str(runTime))
+            return (
+                helmArray[bruteForceArray[0][0]],
+                chestArray[bruteForceArray[0][1]],
+                gauntletArray[bruteForceArray[0][2]],
+                legArray[bruteForceArray[0][3]],
+            )
+    else:
+        return helmPiece, chestPiece, gauntletPiece, legPiece
+
+
 def calcArmorSet(launchValues, armorArray):
     (
         helmArray,
@@ -1160,11 +1450,14 @@ def calcArmorSet(launchValues, armorArray):
         gauntletIncr,
         legIncr,
     )
+    helmPiece, chestPiece, gauntletPiece, legPiece = poiseOptimization(
+        launchValues, armorArray, helmPiece, chestPiece, gauntletPiece, legPiece
+    )
     return [helmPiece.name, chestPiece.name, gauntletPiece.name, legPiece.name]
 
 
 # Create the window
-launchWindow = sg.Window("Elden Ring Armor Calculator", inputLayout, size=(440, 440))
+launchWindow = sg.Window("Elden Ring Armor Calculator", inputLayout)
 
 
 def getTargeWeight(launchArray):
@@ -1174,6 +1467,26 @@ def getTargeWeight(launchArray):
         ) / 100 - float(launchArray["initWeight"])
     else:
         return 999
+
+
+def resultLayoutOrError():
+    if minPoiseUnobtainable:
+        return [
+            [sg.Text("Minimum Poise Unobtainable")],
+            [sg.Text("Head:", size=(6)), sg.Text(resultHelm)],
+            [sg.Text("Chest:", size=(6)), sg.Text(resultChest)],
+            [sg.Text("Hands:", size=(6)), sg.Text(resultGauntlet)],
+            [sg.Text("Legs:", size=(6)), sg.Text(resultLeg)],
+            [sg.Button("Details"), sg.Button("OK")],
+        ]
+    else:
+        return [
+            [sg.Text("Head:", size=(6)), sg.Text(resultHelm)],
+            [sg.Text("Chest:", size=(6)), sg.Text(resultChest)],
+            [sg.Text("Hands:", size=(6)), sg.Text(resultGauntlet)],
+            [sg.Text("Legs:", size=(6)), sg.Text(resultLeg)],
+            [sg.Button("Details"), sg.Button("OK")],
+        ]
 
 
 # Create an event loop
@@ -1188,6 +1501,7 @@ while True:
         weight = getTargeWeight(launchArray)
         launchValues = LaunchValues(
             weight,
+            float(launchArray["minPoise"]),
             launchArray["headFlag"],
             launchArray["chestFlag"],
             launchArray["handsFlag"],
@@ -1219,16 +1533,12 @@ while True:
             launchArray["poiseFlag"],
             float(launchArray["poiseCoef"]),
         )
+        for i in range(len(armorArray)):
+            armorArray[i].score = calcArmorValue(launchValues, armorArray[i])
         resultHelm, resultChest, resultGauntlet, resultLeg = calcArmorSet(
             launchValues, armorArray
         )
-        resultLayout = [
-            [sg.Text("Head:", size=(6)), sg.Text(resultHelm)],
-            [sg.Text("Chest:", size=(6)), sg.Text(resultChest)],
-            [sg.Text("Hands:", size=(6)), sg.Text(resultGauntlet)],
-            [sg.Text("Legs:", size=(6)), sg.Text(resultLeg)],
-            [sg.Button("OK")],
-        ]
+        resultLayout = resultLayoutOrError()
         resultWindow = sg.Window("Optimal Set", resultLayout)
         while True:
             resultEvent, resultValues = resultWindow.read()
@@ -1237,3 +1547,14 @@ while True:
             if resultEvent == "OK" or resultEvent == sg.WIN_CLOSED:
                 resultWindow.close()
                 break
+            # open details
+            if resultEvent == "Details":
+                detailLayout = [
+                    [sg.Button("OK")],
+                ]
+                detailWindow = sg.Window("Details", detailLayout)
+                while True:
+                    detailWindow.read()
+                    if resultEvent == "OK" or resultEvent == sg.WIN_CLOSED:
+                        detailWindow.close()
+                        break
