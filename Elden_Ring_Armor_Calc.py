@@ -1,9 +1,10 @@
+import asyncio
 import copy
 import csv
 import os.path
-import PySimpleGUI as sg
-import asyncio
 from operator import attrgetter
+
+import PySimpleGUI as sg
 
 # troubleshooting
 # import time
@@ -589,10 +590,6 @@ if not os.path.exists("Elden_Ring_Armor_Calc.csv"):
     with open("Elden_Ring_Armor_Calc.csv", "w", newline="") as file:
         csv.writer(file, delimiter=",").writerows(csvBackup)
 
-with open("Elden_Ring_Armor_Calc.csv") as armor_csv:
-    reader = csv.reader(armor_csv)
-    data = [row for row in reader]
-
 inputLayout = [
     [
         sg.Text("Weight Without Armor", size=(16)),
@@ -800,6 +797,22 @@ class Armor:
         armor.score = score
 
 
+def initData():
+    with open("Elden_Ring_Armor_Calc.csv") as armor_csv:
+        reader = csv.reader(armor_csv)
+        data = [row for row in reader]
+    noArmor = [
+        ["Y", "Nothing", "head", 0.000001, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        ["Y", "Nothing", "chest", 0.000001, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        ["Y", "Nothing", "hands", 0.000001, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        ["Y", "Nothing", "legs", 0.000001, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    ]
+    for i in range(len(noArmor)):
+        data.append(noArmor[i])
+    armor_csv.close()
+    return data
+
+
 def handlingMissingValues(value):
     if value:
         return value
@@ -807,40 +820,33 @@ def handlingMissingValues(value):
         return 0
 
 
-noArmor = [
-    ["Y", "Nothing", "head", 0.000001, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    ["Y", "Nothing", "chest", 0.000001, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    ["Y", "Nothing", "hands", 0.000001, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    ["Y", "Nothing", "legs", 0.000001, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-]
+def initArmorArray(data):
+    armorArray = []
+    for i in range(len(data)):
+        if i > 0:  # ignore header
+            if data[i][0] == "Y":  # only use active
+                tempArmor = Armor(
+                    name=data[i][1],
+                    type=data[i][2],
+                    weight=float(data[i][3]),
+                    physical=float(data[i][4]),
+                    strike=float(data[i][5]),
+                    slash=float(data[i][6]),
+                    pierce=float(data[i][7]),
+                    magic=float(data[i][8]),
+                    fire=float(data[i][9]),
+                    lightning=float(data[i][10]),
+                    holy=float(data[i][11]),
+                    immunity=float(data[i][12]),
+                    robustness=float(data[i][13]),
+                    focus=float(handlingMissingValues(data[i][14])),
+                    vitality=float(handlingMissingValues(data[i][15])),
+                    poise=float(handlingMissingValues(data[i][16])),
+                    score=None,
+                )
+                armorArray.append(tempArmor)
+    return armorArray
 
-for i in range(len(noArmor)):
-    data.append(noArmor[i])
-
-armorArray = []
-for i in range(len(data)):
-    if i > 0:  # ignore header
-        if data[i][0] == "Y":  # only use active
-            tempArmor = Armor(
-                name=data[i][1],
-                type=data[i][2],
-                weight=float(data[i][3]),
-                physical=float(data[i][4]),
-                strike=float(data[i][5]),
-                slash=float(data[i][6]),
-                pierce=float(data[i][7]),
-                magic=float(data[i][8]),
-                fire=float(data[i][9]),
-                lightning=float(data[i][10]),
-                holy=float(data[i][11]),
-                immunity=float(data[i][12]),
-                robustness=float(data[i][13]),
-                focus=float(handlingMissingValues(data[i][14])),
-                vitality=float(handlingMissingValues(data[i][15])),
-                poise=float(handlingMissingValues(data[i][16])),
-                score=None,
-            )
-            armorArray.append(tempArmor)
 
 # returns the score as a raw number value
 def calcArmorValue(launchValues, armorPiece):
@@ -1533,6 +1539,8 @@ while True:
             launchArray["poiseFlag"],
             float(launchArray["poiseCoef"]),
         )
+        data = initData()
+        armorArray = initArmorArray(data)
         for i in range(len(armorArray)):
             armorArray[i].score = calcArmorValue(launchValues, armorArray[i])
         resultHelm, resultChest, resultGauntlet, resultLeg = calcArmorSet(
